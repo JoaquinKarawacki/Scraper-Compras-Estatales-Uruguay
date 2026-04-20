@@ -1,0 +1,17 @@
+# requirements.txt
+# Scraper Compras Estatales Uruguay
+# ===================================
+
+# HTTP y parsing HTML (fallback / modo requests)
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+
+# Navegador headless para páginas con JS (modo primario)
+playwright>=1.44.0
+
+# Variables de entorno
+python-dotenv>=1.0.0
+
+# Utilidades
+tenacity>=8.2.0          # Reintentos más avanzados (opcional, usado en scraper)

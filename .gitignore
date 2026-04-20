@@ -1,0 +1,19 @@
+# Credenciales — nunca subir
+.env
+
+# Base de datos local
+data/
+logs/
+
+# Entorno virtual
+venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Windows
+Thumbs.db
+desktop.ini
