@@ -3,10 +3,11 @@ api.py
 ------
 Servicio único: panel web (FastAPI) + scraping periódico en el mismo proceso.
 
-Un scheduler interno (APScheduler) dispara `main.run_once()` cada
-`config.SCRAPE_INTERVAL_HOURS` horas, en un hilo aparte para no bloquear
-el servidor. El panel lee/escribe la misma base SQLite (config.DB_PATH)
-que ese ciclo va llenando — todo en un solo proceso, un solo volume.
+Un scheduler interno (APScheduler) dispara `main.run_once()` según
+`config.SCRAPE_CRON` (expresión cron, default todos los días a las 8:00
+hora de Uruguay), en un hilo aparte para no bloquear el servidor. El
+panel lee/escribe la misma base SQLite (config.DB_PATH) que ese ciclo
+va llenando — todo en un solo proceso, un solo volume.
 
 Uso local:
     uvicorn api:app --reload --port 8010
@@ -23,6 +24,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -43,13 +45,12 @@ async def lifespan(app: FastAPI):
     setup_logging()
     scheduler.add_job(
         run_once,
-        "interval",
-        hours=config.SCRAPE_INTERVAL_HOURS,
+        CronTrigger.from_crontab(config.SCRAPE_CRON, timezone=config.SCRAPE_TIMEZONE),
         id="scrape_cycle",
-        max_instances=1,  # nunca dos scrapings en paralelo si uno tarda más que el intervalo
+        max_instances=1,  # nunca dos scrapings en paralelo si uno tarda más que hasta el próximo disparo
     )
     scheduler.start()
-    logger.info(f"Scheduler iniciado: scraping cada {config.SCRAPE_INTERVAL_HOURS}h.")
+    logger.info(f"Scheduler iniciado: cron '{config.SCRAPE_CRON}' ({config.SCRAPE_TIMEZONE}).")
     yield
     scheduler.shutdown(wait=False)
 

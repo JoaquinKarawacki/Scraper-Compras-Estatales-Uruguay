@@ -146,7 +146,7 @@ crontab -e
 
 ## Panel web en Railway
 
-El scraper y el panel corren en **un solo servicio de Railway**, siempre encendido — no hay Cron Schedule de Railway ni un segundo servicio. El propio proceso (`api.py`, FastAPI + un scheduler interno con APScheduler) dispara el ciclo de scraping cada `SCRAPE_INTERVAL_HOURS` horas (default 1) y además sirve el panel web. Esto evita tener que compartir un Volume entre dos servicios distintos (Railway no lo permite fácilmente desde el dashboard).
+El scraper y el panel corren en **un solo servicio de Railway**, siempre encendido — no hay Cron Schedule de Railway ni un segundo servicio. El propio proceso (`api.py`, FastAPI + un scheduler interno con APScheduler) dispara el ciclo de scraping según `SCRAPE_CRON` (default `0 8 * * *`, todos los días a las 8:00 hora de Uruguay) y además sirve el panel web. Esto evita tener que compartir un Volume entre dos servicios distintos (Railway no lo permite fácilmente desde el dashboard).
 
 Configuración del servicio (el mismo que ya tenías corriendo el scraper):
 
@@ -157,9 +157,10 @@ Configuración del servicio (el mismo que ya tenías corriendo el scraper):
 2. **Settings → Cron Schedule**: dejar **vacío** — el servicio queda siempre corriendo; el scheduling ahora lo maneja el proceso mismo, no Railway.
 3. **Volume**: el mismo que ya tenías montado, sin tocar (mismo path, mismo `DB_PATH`) — no hace falta crear uno nuevo.
 4. Variables opcionales:
-   - `SCRAPE_INTERVAL_HOURS` — cada cuántas horas dispara el ciclo de scraping (default `1` si no se setea).
+   - `SCRAPE_CRON` — expresión cron estándar (default `0 8 * * *`, todos los días a las 8:00).
+   - `SCRAPE_TIMEZONE` — zona horaria para interpretar `SCRAPE_CRON` (default `America/Montevideo`).
 5. **Settings → Networking → Generate Domain** para obtener una URL pública del panel.
-6. Verificar: abrir `https://<tu-dominio-railway>.up.railway.app/api/stats` — debería responder 200 con contadores en 0 al principio, y crecer después del primer ciclo de scraping (a la hora, o al valor de `SCRAPE_INTERVAL_HOURS`).
+6. Verificar: abrir `https://<tu-dominio-railway>.up.railway.app/api/stats` — debería responder 200 con contadores en 0 al principio, y crecer después del primer disparo del cron (a las 8:00 del día siguiente, salvo que cambies `SCRAPE_CRON`).
 
 El comando `python main.py` (con `--dry-run`, `--test-email`, etc.) sigue andando igual para uso manual/local — sigue siendo el mismo código, solo que ahora también se puede invocar desde dentro del proceso del panel (`main.run_once()`), no únicamente desde la CLI.
 

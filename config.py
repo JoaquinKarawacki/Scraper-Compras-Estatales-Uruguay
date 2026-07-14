@@ -84,7 +84,9 @@ class Config:
     NEXT_PAGE_SELECTOR_BS: str = os.getenv("NEXT_PAGE_SELECTOR_BS", "a.siguiente, li.next a")
  
     # --- Scheduler interno del panel web (api.py) ---
-    SCRAPE_INTERVAL_HOURS: int = _get_int("SCRAPE_INTERVAL_HOURS", 1)
+    # Expresión cron estándar (min hora día mes día-semana). Default: todos los días a las 8:00.
+    SCRAPE_CRON: str = os.getenv("SCRAPE_CRON", "0 8 * * *")
+    SCRAPE_TIMEZONE: str = os.getenv("SCRAPE_TIMEZONE", "America/Montevideo")
 
     # --- Logging ---
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
