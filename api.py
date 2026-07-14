@@ -1,36 +1,60 @@
 """
 api.py
 ------
-Panel web (FastAPI) para revisar licitaciones activas y marcarlas
-manualmente como "solicitada" o "archivada".
+Servicio único: panel web (FastAPI) + scraping periódico en el mismo proceso.
 
-Corre como servicio separado del cron del scraper, sobre la misma
-base SQLite (config.DB_PATH). Es de solo lectura + cambio de estado
-manual: no scrapea ni envía mail (eso lo sigue haciendo main.py).
+Un scheduler interno (APScheduler) dispara `main.run_once()` cada
+`config.SCRAPE_INTERVAL_HOURS` horas, en un hilo aparte para no bloquear
+el servidor. El panel lee/escribe la misma base SQLite (config.DB_PATH)
+que ese ciclo va llenando — todo en un solo proceso, un solo volume.
 
 Uso local:
     uvicorn api:app --reload --port 8010
 
-En Railway: segundo servicio en el mismo proyecto/repo, sin Cron
-Schedule (siempre encendido), Start Command:
+En Railway: un único servicio, siempre encendido (sin Cron Schedule),
+Start Command:
     uvicorn api:app --host 0.0.0.0 --port $PORT
-compartiendo el mismo Volume (y el mismo DB_PATH) que el servicio
-del scraper — ver README.md, sección "Panel web en Railway".
+usando el mismo Volume/DB_PATH que ya tenía el scraper — ver README.md,
+sección "Panel web en Railway".
 """
 
+import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
 
+from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from config import config
 from storage import LicitacionesStore
+from main import run_once, setup_logging
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "web" / "static"
 
-app = FastAPI(title="Panel de Licitaciones - Compras Estatales Uruguay")
+logger = logging.getLogger("api")
+scheduler = BackgroundScheduler()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    setup_logging()
+    scheduler.add_job(
+        run_once,
+        "interval",
+        hours=config.SCRAPE_INTERVAL_HOURS,
+        id="scrape_cycle",
+        max_instances=1,  # nunca dos scrapings en paralelo si uno tarda más que el intervalo
+    )
+    scheduler.start()
+    logger.info(f"Scheduler iniciado: scraping cada {config.SCRAPE_INTERVAL_HOURS}h.")
+    yield
+    scheduler.shutdown(wait=False)
+
+
+app = FastAPI(title="Panel de Licitaciones - Compras Estatales Uruguay", lifespan=lifespan)
 
 
 def get_store() -> LicitacionesStore:

@@ -83,6 +83,9 @@ class Config:
     NEXT_PAGE_SELECTOR: str = os.getenv("NEXT_PAGE_SELECTOR", "a.siguiente, li.next a, [aria-label='siguiente']")
     NEXT_PAGE_SELECTOR_BS: str = os.getenv("NEXT_PAGE_SELECTOR_BS", "a.siguiente, li.next a")
  
+    # --- Scheduler interno del panel web (api.py) ---
+    SCRAPE_INTERVAL_HOURS: int = _get_int("SCRAPE_INTERVAL_HOURS", 1)
+
     # --- Logging ---
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     LOG_FILE: str = os.getenv("LOG_FILE", str(BASE_DIR / "logs" / "scraper.log"))

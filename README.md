@@ -146,18 +146,22 @@ crontab -e
 
 ## Panel web en Railway
 
-El scraper corre hoy en Railway como un servicio con **Cron Schedule** (`python main.py`) sobre un Volume montado (persistencia del SQLite entre corridas/deploys). El panel web (`api.py`) necesita quedar **siempre encendido** — es un proceso distinto, así que va como un **segundo servicio dentro del mismo proyecto de Railway**, apuntando al mismo repo:
+El scraper y el panel corren en **un solo servicio de Railway**, siempre encendido — no hay Cron Schedule de Railway ni un segundo servicio. El propio proceso (`api.py`, FastAPI + un scheduler interno con APScheduler) dispara el ciclo de scraping cada `SCRAPE_INTERVAL_HOURS` horas (default 1) y además sirve el panel web. Esto evita tener que compartir un Volume entre dos servicios distintos (Railway no lo permite fácilmente desde el dashboard).
 
-1. En el proyecto de Railway: **New Service → GitHub Repo** (el mismo repo, otra vez).
-2. En ese nuevo servicio:
-   - **Start Command**: `uvicorn api:app --host 0.0.0.0 --port $PORT` (Railway inyecta `$PORT`, no uses un puerto fijo).
-   - **Cron Schedule**: dejar vacío — este servicio debe quedar siempre corriendo, no es una tarea periódica.
-   - **Volumes**: montar el **mismo Volume** que usa el servicio del scraper, en el **mismo path** (ej. `/app/data`), para que ambos lean/escriban el mismo archivo SQLite.
-   - **Variables**: copiar `DB_PATH` con el mismo valor que tiene el servicio del scraper (si está seteado explícitamente ahí). Si el scraper no la seteó y usa el default, no hace falta tocarla — cae en el mismo Volume igual.
-3. **Settings → Networking → Generate Domain** para obtener una URL pública del panel.
-4. Verificar: abrir `https://<tu-dominio-railway>.up.railway.app/` y confirmar que aparecen las licitaciones activas.
+Configuración del servicio (el mismo que ya tenías corriendo el scraper):
 
-El servicio del scraper (cron) no necesita ningún cambio de configuración — sigue ejecutando `python main.py` igual que siempre; ese script ya incluye la lógica que puebla el panel en cada corrida.
+1. **Settings → Deploy → Start Command**:
+   ```
+   uvicorn api:app --host 0.0.0.0 --port $PORT
+   ```
+2. **Settings → Cron Schedule**: dejar **vacío** — el servicio queda siempre corriendo; el scheduling ahora lo maneja el proceso mismo, no Railway.
+3. **Volume**: el mismo que ya tenías montado, sin tocar (mismo path, mismo `DB_PATH`) — no hace falta crear uno nuevo.
+4. Variables opcionales:
+   - `SCRAPE_INTERVAL_HOURS` — cada cuántas horas dispara el ciclo de scraping (default `1` si no se setea).
+5. **Settings → Networking → Generate Domain** para obtener una URL pública del panel.
+6. Verificar: abrir `https://<tu-dominio-railway>.up.railway.app/api/stats` — debería responder 200 con contadores en 0 al principio, y crecer después del primer ciclo de scraping (a la hora, o al valor de `SCRAPE_INTERVAL_HOURS`).
+
+El comando `python main.py` (con `--dry-run`, `--test-email`, etc.) sigue andando igual para uso manual/local — sigue siendo el mismo código, solo que ahora también se puede invocar desde dentro del proceso del panel (`main.run_once()`), no únicamente desde la CLI.
 
 ---
 

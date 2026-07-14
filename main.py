@@ -95,40 +95,35 @@ def get_test_items() -> list[dict]:
  
  
 # ---------------------------------------------------------------------------
-# Función principal
+# Ciclo de trabajo (reutilizable desde la CLI y desde el scheduler del panel)
 # ---------------------------------------------------------------------------
- 
-def main():
-    setup_logging()
+
+def run_once(dry_run: bool = False, force_send: bool = False, test_email: bool = False) -> int:
+    """
+    Ejecuta un ciclo completo: scraping → filtrado → panel → deduplicación → email.
+    Retorna un código de salida (0 = éxito, 1 = error) en vez de terminar el proceso,
+    para poder ser invocada tanto por la CLI (`python main.py`) como por el scheduler
+    interno del panel web (api.py), que corre en el mismo proceso de larga duración.
+    """
     logger = logging.getLogger("main")
- 
-    parser = argparse.ArgumentParser(description="Scraper de Compras Estatales Uruguay")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Ejecutar sin enviar email ni guardar en base de datos")
-    parser.add_argument("--force-send", action="store_true",
-                        help="Forzar envío de email aunque no haya novedades")
-    parser.add_argument("--test-email", action="store_true",
-                        help="Enviar email de prueba con datos ficticios")
-    args = parser.parse_args()
- 
+
     run_at = datetime.now(timezone.utc).replace(tzinfo=None)
     logger.info("=" * 70)
     logger.info(f"INICIO DE EJECUCIÓN: {run_at.strftime('%Y-%m-%d %H:%M:%S UTC')}")
     logger.info("=" * 70)
- 
+
     # --- Modo test ---
-    if args.test_email:
+    if test_email:
         logger.info("Modo TEST: enviando email de prueba...")
-        test_items = get_test_items()
-        success = send_email(test_items, run_at)
-        sys.exit(0 if success else 1)
- 
+        success = send_email(get_test_items(), run_at)
+        return 0 if success else 1
+
     # --- Scraping ---
     try:
         all_relevant = run_scraper()
     except Exception as e:
         logger.error(f"Error crítico en scraping: {e}", exc_info=True)
-        if not args.dry_run and config.MS_CLIENT_SECRET:
+        if not dry_run and config.MS_CLIENT_SECRET:
             try:
                 send_email([{
                     "id": "ERROR",
@@ -142,16 +137,16 @@ def main():
                 logger.info("Email de alerta de error enviado.")
             except Exception:
                 pass
-        sys.exit(1)
- 
+        return 1
+
     # --- Deduplicación ---
-    if args.dry_run:
+    if dry_run:
         logger.info("[DRY RUN] Saltando deduplicación y envío.")
         logger.info(f"[DRY RUN] Se habrían notificado {len(all_relevant)} publicaciones:")
         for item in all_relevant:
             logger.info(f"  - [{item['id']}] {item.get('title', 'N/A')[:80]}")
         logger.info("FIN (dry-run)")
-        sys.exit(0)
+        return 0
 
     # --- Panel web: refrescar licitaciones activas (independiente del email) ---
     try:
@@ -160,24 +155,24 @@ def main():
         logger.error(f"Error actualizando panel de licitaciones: {e}", exc_info=True)
 
     new_items = filter_new_publications(all_relevant)
- 
+
     # --- Notificación ---
-    if not new_items and not args.force_send:
+    if not new_items and not force_send:
         logger.info("No hay nuevas publicaciones. Finalizando sin enviar email.")
         logger.info("=" * 70)
         logger.info(f"FIN: {datetime.now(timezone.utc).replace(tzinfo=None).strftime('%Y-%m-%d %H:%M:%S UTC')}")
-        sys.exit(0)
- 
+        return 0
+
     # Forzar envío si flag activo
     original_send_if_empty = config.SEND_IF_EMPTY
-    if args.force_send:
+    if force_send:
         config.SEND_IF_EMPTY = True
- 
+
     email_sent = send_email(new_items, run_at)
- 
+
     # Restaurar config
     config.SEND_IF_EMPTY = original_send_if_empty
- 
+
     # --- Marcar como notificadas (solo si el email se envió) ---
     if email_sent and new_items:
         mark_as_notified(new_items)
@@ -185,13 +180,33 @@ def main():
     elif not email_sent:
         logger.error("Email no enviado. Las publicaciones NO se marcan como notificadas.")
         logger.error("Se reintentará en la próxima ejecución.")
-        sys.exit(1)
- 
+        return 1
+
     logger.info("=" * 70)
     logger.info(f"FIN EXITOSO: {datetime.now(timezone.utc).replace(tzinfo=None).strftime('%Y-%m-%d %H:%M:%S UTC')}")
     logger.info("=" * 70)
-    sys.exit(0)
- 
- 
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Función principal (CLI)
+# ---------------------------------------------------------------------------
+
+def main():
+    setup_logging()
+
+    parser = argparse.ArgumentParser(description="Scraper de Compras Estatales Uruguay")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Ejecutar sin enviar email ni guardar en base de datos")
+    parser.add_argument("--force-send", action="store_true",
+                        help="Forzar envío de email aunque no haya novedades")
+    parser.add_argument("--test-email", action="store_true",
+                        help="Enviar email de prueba con datos ficticios")
+    args = parser.parse_args()
+
+    exit_code = run_once(dry_run=args.dry_run, force_send=args.force_send, test_email=args.test_email)
+    sys.exit(exit_code)
+
+
 if __name__ == "__main__":
     main()
