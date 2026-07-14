@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel de Licitaciones — Compras Estatales Uruguay</title>
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <div>
+      <h1>Panel de Licitaciones</h1>
+      <p class="subtitle">Compras Estatales Uruguay · actualizado en cada corrida del scraper</p>
+    </div>
+    <div class="stats" id="stats">
+      <div class="stat-tile"><div class="value" data-stat="total_activas">—</div><div class="label">Activas</div></div>
+      <div class="stat-tile"><div class="value" data-stat="vencen_pronto">—</div><div class="label">Vencen en 7 días</div></div>
+      <div class="stat-tile"><div class="value" data-stat="total_solicitadas">—</div><div class="label">Solicitadas</div></div>
+      <div class="stat-tile"><div class="value" data-stat="total_archivadas">—</div><div class="label">Archivadas</div></div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="activas">Activas</button>
+    <button class="tab-btn" data-tab="solicitadas">Solicitadas</button>
+    <button class="tab-btn" data-tab="archivadas">Archivadas</button>
+  </div>
+
+  <div id="error-banner" class="error-banner" style="display:none"></div>
+
+  <div class="tab-panel active" data-panel="activas">
+    <div class="card-list" id="list-activas"></div>
+  </div>
+  <div class="tab-panel" data-panel="solicitadas">
+    <div class="card-list" id="list-solicitadas"></div>
+  </div>
+  <div class="tab-panel" data-panel="archivadas">
+    <div class="card-list" id="list-archivadas"></div>
+  </div>
+
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>

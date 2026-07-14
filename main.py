@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
  
 from config import config
 from scraper import run_scraper
-from storage import filter_new_publications, mark_as_notified
+from storage import filter_new_publications, mark_as_notified, upsert_relevant_licitaciones
 from notifier import send_email
  
  
@@ -152,7 +152,13 @@ def main():
             logger.info(f"  - [{item['id']}] {item.get('title', 'N/A')[:80]}")
         logger.info("FIN (dry-run)")
         sys.exit(0)
- 
+
+    # --- Panel web: refrescar licitaciones activas (independiente del email) ---
+    try:
+        upsert_relevant_licitaciones(all_relevant)
+    except Exception as e:
+        logger.error(f"Error actualizando panel de licitaciones: {e}", exc_info=True)
+
     new_items = filter_new_publications(all_relevant)
  
     # --- Notificación ---

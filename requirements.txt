@@ -15,3 +15,7 @@ python-dotenv>=1.0.0
 
 # Utilidades
 tenacity>=8.2.0          # Reintentos más avanzados (opcional, usado en scraper)
+
+# Panel web (FastAPI)
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0

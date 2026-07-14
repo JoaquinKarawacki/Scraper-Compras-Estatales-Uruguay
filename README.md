@@ -144,6 +144,23 @@ crontab -e
 
 ---
 
+## Panel web en Railway
+
+El scraper corre hoy en Railway como un servicio con **Cron Schedule** (`python main.py`) sobre un Volume montado (persistencia del SQLite entre corridas/deploys). El panel web (`api.py`) necesita quedar **siempre encendido** — es un proceso distinto, así que va como un **segundo servicio dentro del mismo proyecto de Railway**, apuntando al mismo repo:
+
+1. En el proyecto de Railway: **New Service → GitHub Repo** (el mismo repo, otra vez).
+2. En ese nuevo servicio:
+   - **Start Command**: `uvicorn api:app --host 0.0.0.0 --port $PORT` (Railway inyecta `$PORT`, no uses un puerto fijo).
+   - **Cron Schedule**: dejar vacío — este servicio debe quedar siempre corriendo, no es una tarea periódica.
+   - **Volumes**: montar el **mismo Volume** que usa el servicio del scraper, en el **mismo path** (ej. `/app/data`), para que ambos lean/escriban el mismo archivo SQLite.
+   - **Variables**: copiar `DB_PATH` con el mismo valor que tiene el servicio del scraper (si está seteado explícitamente ahí). Si el scraper no la seteó y usa el default, no hace falta tocarla — cae en el mismo Volume igual.
+3. **Settings → Networking → Generate Domain** para obtener una URL pública del panel.
+4. Verificar: abrir `https://<tu-dominio-railway>.up.railway.app/` y confirmar que aparecen las licitaciones activas.
+
+El servicio del scraper (cron) no necesita ningún cambio de configuración — sigue ejecutando `python main.py` igual que siempre; ese script ya incluye la lógica que puebla el panel en cada corrida.
+
+---
+
 ## Logs y mantenimiento
 
 ```bash
